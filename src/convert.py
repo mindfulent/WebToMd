@@ -51,6 +51,8 @@ def process_url(self, url: str) -> str:
         # Stage 1: Visual Analysis
         logger.info("Stage 1/3: Performing visual analysis...")
         screenshot = self.visual_scraper.capture(url)
+        screenshot_path = self.visual_scraper.save_screenshot(screenshot, url)
+        logger.info(f"Screenshot saved to: {screenshot_path}")
         visual_analysis = analyze_page_content(Image.open(io.BytesIO(screenshot)))
         logger.info("Visual analysis complete")
         
@@ -97,12 +99,25 @@ class HTMLScraper:
 class VisualScraper:
     """Handles visual content capture using Selenium"""
     
-    def __init__(self):
+    def __init__(self, output_dir: str = "output"):
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.binary_location = os.getenv("CHROME_BINARY_PATH", "/usr/bin/chromium")
         self.driver = webdriver.Chrome(options=chrome_options)
+        self.output_dir = output_dir
+
+    def save_screenshot(self, screenshot: bytes, url: str) -> str:
+        """Save screenshot to output directory"""
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        filename = f"{parsed.netloc.split('.')[0]}_screenshot.png"
+        filepath = os.path.join(self.output_dir, filename)
+        
+        with open(filepath, 'wb') as f:
+            f.write(screenshot)
+        
+        return filepath
 
     def capture(self, url: str) -> bytes:
         """Capture screenshot of the webpage"""
@@ -151,6 +166,12 @@ def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
         2. Maintain the document structure from visual analysis
         3. Preserve important visual elements noted in analysis
         4. Exclude all navigation, ads, and footer content
+        5. For tables:
+           - Use standard Markdown table syntax with pipes and hyphens
+           - Preserve column alignment using colons in separator row
+           - Maintain header rows with at least three hyphens
+           - Escape pipe characters in content with backslash
+           - Keep consistent column spacing for readability
         """)
     ]
 
@@ -245,6 +266,8 @@ class MarkdownConverter:
             # Stage 1: Visual Analysis
             logger.info("Stage 1/3: Performing visual analysis...")
             screenshot = self.visual_scraper.capture(url)
+            screenshot_path = self.visual_scraper.save_screenshot(screenshot, url)
+            logger.info(f"Screenshot saved to: {screenshot_path}")
             visual_analysis = analyze_page_content(Image.open(io.BytesIO(screenshot)))
             logger.info("Visual analysis complete")
             

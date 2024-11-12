@@ -8,3 +8,4 @@ Dockerfile
 run.sh
 start.sh
 .DS_Store
+logdir/
