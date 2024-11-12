@@ -16,7 +16,7 @@ A powerful Python-based tool that transforms web content into clean, well-format
 
 ## Example Output
 
-Check out [Markdown.md](output/Markdown.md) for an example of the converter's output when processing the Wikipedia article on Markdown. This example demonstrates the tool's ability to:
+Check out [Markdown.md](output/Markdown.md) for an example of the converter's output when processing the Wikipedia article on Markdown (<https://en.wikipedia.org/wiki/Markdown>). This example demonstrates the tool's ability to:
 
 - Preserve document structure and hierarchy
 - Handle complex formatting including tables and code blocks
