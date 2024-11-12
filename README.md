@@ -2,7 +2,7 @@
 
 ## Author: [Jon Pappas](https://github.com/mindfulent)
 
-A powerful Python-based tool that transforms web content into clean, well-formatted Markdown documents by leveraging advanced HTML parsing and GPT-4 Vision-powered analysis. Built with Ell.so integration, it intelligently preserves document structure while eliminating unnecessary elements. 
+A powerful Python-based tool that transforms web content into clean, well-formatted Markdown documents by leveraging advanced HTML parsing and GPT-4 Vision-powered analysis. Built with Ell.so for orchestration, it intelligently preserves document structure while eliminating unnecessary elements. 
 
 ## Features
 
