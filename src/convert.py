@@ -235,7 +235,7 @@ def split_content(screenshot):
     # Basic implementation - can be enhanced based on needs
     return [screenshot]  # For now, return full screenshot as single section
 
-@ell.simple(model="gpt-4o-mini")
+@ell.simple(model="gpt-4o")
 def analyze_page_content(screenshot: Image.Image) -> Dict:
     """Analyze webpage screenshot to identify main content and structure."""
     # Convert to RGB if image is in RGBA mode
@@ -246,53 +246,38 @@ def analyze_page_content(screenshot: Image.Image) -> Dict:
     max_size = (800, 800)  # Reduced from 1024x1024
     screenshot.thumbnail(max_size, Image.Resampling.LANCZOS)
     
-    # Apply additional optimizations
-    buffered = io.BytesIO()
-    
-    # Optimize with progressive JPEG instead of PNG
-    screenshot.save(buffered, 
-                   format="JPEG", 
-                   optimize=True,
-                   quality=60,  # Reduced quality but still readable
-                   progressive=True)
-    
-    # Check file size
-    current_size = len(buffered.getvalue())
-    target_size = 1000000  # Target 1MB
-    
-    # If still too large, apply additional compression
-    if current_size > target_size:
-        compression_ratio = target_size / current_size
-        new_quality = int(60 * compression_ratio)
-        new_quality = max(30, min(60, new_quality))  # Keep quality between 30-60
-        
-        buffered = io.BytesIO()
-        screenshot.save(buffered,
-                       format="JPEG",
-                       optimize=True,
-                       quality=new_quality,
-                       progressive=True)
-    
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    
-    # Calculate tokens after compression
-    estimated_tokens = len(img_str) // 4
-    max_tokens = 1500000
-    
-    if estimated_tokens > max_tokens:
-        sections = split_content(screenshot)
-        results = []
-        for section in sections:
-            results.append(analyze_section(section))
-        return combine_results(results)
-    
-    messages = [
-        ell.system("""You are a webpage content analyzer..."""),
-        ell.user("Analyze this webpage screenshot and provide the structured analysis."),
-        ell.user(f"<image>data:image/jpeg;base64,{img_str}</image>")  # Changed to JPEG
+    return [
+        ell.system("""You are a webpage content analyzer. Analyze the screenshot and provide a structured analysis in the following JSON format:
+        {
+            "main_content": {
+                "top": float,    // Relative position from top (0-1)
+                "bottom": float, // Relative position from bottom (0-1)
+                "left": float,   // Relative position from left (0-1)
+                "right": float   // Relative position from right (0-1)
+            },
+            "hierarchy": [       // List of content sections in order
+                {
+                    "type": "heading|paragraph|list|table|code",
+                    "level": int,
+                    "position": float  // Relative position from top (0-1)
+                }
+            ],
+            "visual_elements": [ // Important visual elements to preserve
+                {
+                    "type": "image|table|code|blockquote",
+                    "position": float,
+                    "importance": 1-5
+                }
+            ],
+            "exclude": [        // Areas to exclude from conversion
+                {
+                    "type": "navigation|sidebar|footer|ad",
+                    "position": float
+                }
+            ]
+        }"""),
+        ell.user(["Analyze this webpage screenshot and provide the structured analysis.", screenshot])
     ]
-    
-    return messages
 
 @ell.simple(model="gpt-4o-mini")
 def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
@@ -496,24 +481,17 @@ class MarkdownConverter:
         
         return os.path.join(self.output_dir, f"{filename}.md")
 
-@ell.simple(model="gpt-4o-mini")
+@ell.simple(model="gpt-4o")
 def analyze_section(section: Image.Image) -> Dict:
     """Analyze a single section of the webpage screenshot."""
     # Resize section if needed
     max_size = (1024, 1024)
     section.thumbnail(max_size, Image.Resampling.LANCZOS)
     
-    # Convert PIL Image section to base64 string with optimization
-    buffered = io.BytesIO()
-    section.save(buffered, format="PNG", optimize=True, quality=85)
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    
-    messages = [
-        ell.system("""Analyze this section of the webpage and provide structured analysis in JSON format."""),
-        ell.user(f"<image>data:image/png;base64,{img_str}</image>")
+    return [
+        ell.system("""You are a webpage section analyzer. Analyze this section and provide structured analysis in the same JSON format as the main analyzer."""),
+        ell.user(["Analyze this section of the webpage and provide structured analysis.", section])
     ]
-    
-    return messages
 
 def combine_results(results: List[Dict]) -> Dict:
     """Combine multiple section analysis results into a single analysis."""
