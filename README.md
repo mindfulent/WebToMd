@@ -39,7 +39,7 @@ git clone https://github.com/mindfulent/WebToMd
 cd WebToMd
 ```
 
-1. Create and configure your environment file:
+2. Create and configure your environment file:
 
 ```bash
 cp .env.example .env
@@ -47,7 +47,7 @@ cp .env.example .env
 
 Edit `.env` with your API keys and configuration.
 
-1. Set up Python environment and install dependencies:
+3. Set up Python environment and install dependencies:
 
 ```bash
 # Create and activate virtual environment
@@ -58,7 +58,7 @@ source venv/bin/activate  # On Windows use: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-1. Run the converter:
+4. Run the converter:
 
 ```bash
 # Run with URL argument
