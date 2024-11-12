@@ -1,8 +1,8 @@
 # Web to Markdown Converter
 
-## Author: [Jon Pappas](https://github.com/matt-rickard)
+## Author: [Jon Pappas](https://github.com/mindfulent)
 
-A powerful Python-based tool that converts web content into well-formatted Markdown by combining HTML parsing and visual analysis, powered by Ell.so and GPT-4o-minifor intelligent, multimodal content processing.
+A powerful Python-based tool that transforms web content into clean, well-formatted Markdown documents by leveraging advanced HTML parsing and GPT-4 Vision-powered analysis. Built with Ell.so integration, it intelligently preserves document structure while eliminating unnecessary elements. 
 
 ## Features
 
