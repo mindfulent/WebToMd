@@ -36,34 +36,23 @@ cp .env.example .env
 
 Edit `.env` with your API keys and configuration.
 
-3. Build and run with Docker:
+3. Set up Python environment and install dependencies:
 ```bash
-docker compose up -d
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
+
+# Install requirements
+pip install -r requirements.txt
 ```
 
-## Usage
-
-### Command Line
-
-Run the converter using the command line:
-
+4. Run the converter:
 ```bash
-./run.sh
-```
+# Run with URL argument
+python -m src.convert --url https://example.com
 
-Or specify a URL directly:
-
-```bash
-./run.sh --url https://example.com
-```
-
-### Python Module
-
-```python
-from src.convert import MarkdownConverter
-
-converter = MarkdownConverter()
-markdown_content = converter.process_url("https://example.com")
+# Or run interactively
+python -m src.convert
 ```
 
 ## Project Structure
@@ -82,10 +71,8 @@ web-to-md/
 
 The application can be configured through environment variables:
 
+- `OPENAI_API_KEY`: OpenAI API key
 - `CHROME_BINARY_PATH`: Path to Chrome/Chromium binary
-- `CHROMEDRIVER_PATH`: Path to ChromeDriver
-- `ELL_API_KEY`: Your Ell.so API key
-- `DEBUG_MODE`: Enable debug logging (true/false)
 
 ## Processing Pipeline
 
