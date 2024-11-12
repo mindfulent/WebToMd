@@ -19,6 +19,8 @@ from bs4.element import Comment
 import argparse
 from PIL import Image
 import io
+import openai
+import base64
 
 # Load environment variables from .env file
 load_dotenv()
@@ -33,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Configure Ell logging
 ell_logger = logging.getLogger('ell')
 ell_logger.setLevel(logging.WARNING)  # Only show warnings and errors from Ell
+ell.init(store='./logdir', autocommit=True)
 
 # Add a custom handler for our application logs
 console_handler = logging.StreamHandler()
@@ -59,7 +62,27 @@ def process_url(self, url: str) -> str:
         # Stage 2: Content Generation
         logger.info("Stage 2/3: Generating content...")
         html_content = self.html_scraper.scrape(url)
-        markdown_draft = generate_markdown_draft(html_content, visual_analysis)
+        
+        # Split content into chunks and process each chunk
+        html_content_chunks = chunk_content(html_content)
+        markdown_parts = []
+        
+        for chunk in html_content_chunks:
+            try:
+                markdown_part = generate_markdown_draft(chunk, visual_analysis)
+                markdown_parts.append(markdown_part)
+            except openai.BadRequestError as e:
+                if "context_length_exceeded" in str(e):
+                    logger.warning(f"Chunk too large, splitting further...")
+                    # Recursively split into smaller chunks
+                    smaller_chunks = chunk_content(chunk, max_chunk_size=50000)
+                    for smaller_chunk in smaller_chunks:
+                        markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
+                        markdown_parts.append(markdown_part)
+                else:
+                    raise e
+        
+        markdown_draft = '\n\n'.join(markdown_parts)
         logger.info("Content generation complete")
         
         # Stage 3: Markdown Validation
@@ -76,6 +99,30 @@ def process_url(self, url: str) -> str:
     except Exception as e:
         logger.error(f"Conversion failed: {e}")
         raise
+
+def chunk_content(content: str, max_chunk_size: int = 100000) -> List[str]:
+    """Split content into smaller chunks to avoid token limits"""
+    # Split content into paragraphs or sections
+    sections = content.split('\n\n')
+    chunks = []
+    current_chunk = []
+    current_size = 0
+    
+    for section in sections:
+        # Rough estimate of tokens (characters / 4)
+        section_size = len(section) // 4
+        if current_size + section_size > max_chunk_size:
+            chunks.append('\n\n'.join(current_chunk))
+            current_chunk = [section]
+            current_size = section_size
+        else:
+            current_chunk.append(section)
+            current_size += section_size
+    
+    if current_chunk:
+        chunks.append('\n\n'.join(current_chunk))
+    
+    return chunks
 
 class HTMLScraper:
     """Handles HTML content extraction using requests and BeautifulSoup"""
@@ -103,6 +150,7 @@ class VisualScraper:
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--start-maximized")  # Start with max width
         chrome_options.binary_location = os.getenv("CHROME_BINARY_PATH", "/usr/bin/chromium")
         self.driver = webdriver.Chrome(options=chrome_options)
         self.output_dir = output_dir
@@ -111,8 +159,26 @@ class VisualScraper:
         """Save screenshot to output directory"""
         from urllib.parse import urlparse
         parsed = urlparse(url)
-        filename = f"{parsed.netloc.split('.')[0]}_screenshot.png"
-        filepath = os.path.join(self.output_dir, filename)
+        path = parsed.path.strip('/')
+        
+        # Get the last component of the path
+        path_parts = path.split('/')
+        if path_parts:
+            # Take the last part and replace dots with underscores
+            filename = path_parts[-1].replace('.', '_')
+        else:
+            # Fallback to domain if no path
+            filename = parsed.netloc.split('.')[0]
+            
+        # Clean up filename
+        filename = re.sub(r'[^\w\s-]', '', filename)
+        filename = re.sub(r'[-\s]+', '-', filename)
+        
+        # Ensure filename isn't too long
+        if len(filename) > 50:
+            filename = filename[:50]
+            
+        filepath = os.path.join(self.output_dir, f"{filename}.png")
         
         with open(filepath, 'wb') as f:
             f.write(screenshot)
@@ -120,32 +186,113 @@ class VisualScraper:
         return filepath
 
     def capture(self, url: str) -> bytes:
-        """Capture screenshot of the webpage"""
+        """Capture full page screenshot of the webpage"""
         try:
             self.driver.get(url)
+            
+            # Get page dimensions
+            total_height = self.driver.execute_script("""
+                return Math.max(
+                    document.body.scrollHeight, 
+                    document.documentElement.scrollHeight,
+                    document.body.offsetHeight, 
+                    document.documentElement.offsetHeight,
+                    document.body.clientHeight, 
+                    document.documentElement.clientHeight
+                );
+            """)
+            
+            # Get viewport width
+            viewport_width = self.driver.execute_script(
+                "return document.documentElement.clientWidth;"
+            )
+            
+            # Set window size to capture everything
+            self.driver.set_window_size(viewport_width, total_height)
+            
+            # Wait for any dynamic content to load
+            self.driver.implicitly_wait(2)
+            
+            # Take full page screenshot
             return self.driver.get_screenshot_as_png()
+            
         except Exception as e:
             logger.error(f"Visual capture failed: {e}")
             raise
         finally:
             self.driver.quit()
 
+def split_content(screenshot):
+    """
+    Split the screenshot into logical sections for analysis
+    
+    Args:
+        screenshot: PIL Image object of the webpage
+        
+    Returns:
+        List of section images
+    """
+    # Basic implementation - can be enhanced based on needs
+    return [screenshot]  # For now, return full screenshot as single section
+
 @ell.simple(model="gpt-4o-mini")
 def analyze_page_content(screenshot: Image.Image) -> Dict:
     """Analyze webpage screenshot to identify main content and structure."""
-    return [
-        ell.system("""You are a webpage content analyzer. Your task is to identify 
-        the main content while excluding navigation, ads, and other non-essential elements.
-        Focus on what a human reader would consider the primary content."""),
-        ell.user([
-            "Analyze this webpage screenshot and provide:",
-            "1. Main content location and boundaries",
-            "2. Content hierarchy (headings, sections, etc.)",
-            "3. Important visual elements to preserve",
-            "4. Elements to exclude (nav, ads, footers)",
-            screenshot
-        ])
+    # Convert to RGB if image is in RGBA mode
+    if screenshot.mode == 'RGBA':
+        screenshot = screenshot.convert('RGB')
+    
+    # Progressive optimization steps
+    max_size = (800, 800)  # Reduced from 1024x1024
+    screenshot.thumbnail(max_size, Image.Resampling.LANCZOS)
+    
+    # Apply additional optimizations
+    buffered = io.BytesIO()
+    
+    # Optimize with progressive JPEG instead of PNG
+    screenshot.save(buffered, 
+                   format="JPEG", 
+                   optimize=True,
+                   quality=60,  # Reduced quality but still readable
+                   progressive=True)
+    
+    # Check file size
+    current_size = len(buffered.getvalue())
+    target_size = 1000000  # Target 1MB
+    
+    # If still too large, apply additional compression
+    if current_size > target_size:
+        compression_ratio = target_size / current_size
+        new_quality = int(60 * compression_ratio)
+        new_quality = max(30, min(60, new_quality))  # Keep quality between 30-60
+        
+        buffered = io.BytesIO()
+        screenshot.save(buffered,
+                       format="JPEG",
+                       optimize=True,
+                       quality=new_quality,
+                       progressive=True)
+    
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    
+    # Calculate tokens after compression
+    estimated_tokens = len(img_str) // 4
+    max_tokens = 1500000
+    
+    if estimated_tokens > max_tokens:
+        sections = split_content(screenshot)
+        results = []
+        for section in sections:
+            results.append(analyze_section(section))
+        return combine_results(results)
+    
+    messages = [
+        ell.system("""You are a webpage content analyzer..."""),
+        ell.user("Analyze this webpage screenshot and provide the structured analysis."),
+        ell.user(f"<image>data:image/jpeg;base64,{img_str}</image>")  # Changed to JPEG
     ]
+    
+    return messages
 
 @ell.simple(model="gpt-4o-mini")
 def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
@@ -274,7 +421,27 @@ class MarkdownConverter:
             # Stage 2: Content Generation
             logger.info("Stage 2/3: Generating content...")
             html_content = self.html_scraper.scrape(url)
-            markdown_draft = generate_markdown_draft(html_content, visual_analysis)
+            
+            # Split content into chunks and process each chunk
+            html_content_chunks = chunk_content(html_content)
+            markdown_parts = []
+            
+            for chunk in html_content_chunks:
+                try:
+                    markdown_part = generate_markdown_draft(chunk, visual_analysis)
+                    markdown_parts.append(markdown_part)
+                except openai.BadRequestError as e:
+                    if "context_length_exceeded" in str(e):
+                        logger.warning(f"Chunk too large, splitting further...")
+                        # Recursively split into smaller chunks
+                        smaller_chunks = chunk_content(chunk, max_chunk_size=50000)
+                        for smaller_chunk in smaller_chunks:
+                            markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
+                            markdown_parts.append(markdown_part)
+                    else:
+                        raise e
+            
+            markdown_draft = '\n\n'.join(markdown_parts)
             logger.info("Content generation complete")
             
             # Stage 3: Markdown Validation
@@ -328,6 +495,48 @@ class MarkdownConverter:
             filename = filename[:50]
         
         return os.path.join(self.output_dir, f"{filename}.md")
+
+@ell.simple(model="gpt-4o-mini")
+def analyze_section(section: Image.Image) -> Dict:
+    """Analyze a single section of the webpage screenshot."""
+    # Resize section if needed
+    max_size = (1024, 1024)
+    section.thumbnail(max_size, Image.Resampling.LANCZOS)
+    
+    # Convert PIL Image section to base64 string with optimization
+    buffered = io.BytesIO()
+    section.save(buffered, format="PNG", optimize=True, quality=85)
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    
+    messages = [
+        ell.system("""Analyze this section of the webpage and provide structured analysis in JSON format."""),
+        ell.user(f"<image>data:image/png;base64,{img_str}</image>")
+    ]
+    
+    return messages
+
+def combine_results(results: List[Dict]) -> Dict:
+    """Combine multiple section analysis results into a single analysis."""
+    combined = {
+        "main_content": {"top": float('inf'), "bottom": 0, "left": float('inf'), "right": 0},
+        "hierarchy": [],
+        "visual_elements": [],
+        "exclude": []
+    }
+    
+    for result in results:
+        # Update main content boundaries
+        combined["main_content"]["top"] = min(combined["main_content"]["top"], result["main_content"]["top"])
+        combined["main_content"]["bottom"] = max(combined["main_content"]["bottom"], result["main_content"]["bottom"])
+        combined["main_content"]["left"] = min(combined["main_content"]["left"], result["main_content"]["left"])
+        combined["main_content"]["right"] = max(combined["main_content"]["right"], result["main_content"]["right"])
+        
+        # Combine other elements
+        combined["hierarchy"].extend(result["hierarchy"])
+        combined["visual_elements"].extend(result["visual_elements"])
+        combined["exclude"].extend(result["exclude"])
+    
+    return combined
 
 def main():
     """Main function to run the converter"""
