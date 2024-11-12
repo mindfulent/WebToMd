@@ -73,7 +73,8 @@ python -m src.convert
 The project follows a modular architecture:
 
 ```text
-web-to-md/
+WebToMd/
+├── output/  # Output markdown file
 ├── src/
 │ ├── convert.py
 │ └── combine.py
