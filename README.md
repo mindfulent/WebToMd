@@ -11,7 +11,6 @@ A powerful Python-based tool that transforms web content into clean, well-format
 - Visual capture using Selenium
 - GPT-4 Vision powered content analysis
 - Clean Markdown formatting with customizable rules
-- Docker containerization for easy deployment
 - Comprehensive error handling and logging
 - Progress tracking for conversion stages
 
