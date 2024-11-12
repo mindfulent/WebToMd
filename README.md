@@ -73,24 +73,9 @@ The project follows a modular architecture:
 ```text
 web-to-md/
 ├── src/
-│ ├── scrapers/
-│ │ ├── html_scraper.py
-│ │ └── visual_scraper.py
-│ ├── processors/
-│ │ ├── content_analyzer.py
-│ │ └── layout_analyzer.py
-│ ├── converters/
-│ │ ├── markdown_converter.py
-│ │ └── post_processor.py
-│ └── utils/
-│ ├── config.py
-│ └── validators.py
-├── tests/
-├── main.py
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-└── docs/
+│ ├── convert.py
+│ └── combine.py
+└── README.md
 ```
 
 ## Configuration
