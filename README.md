@@ -15,6 +15,16 @@ A powerful Python-based tool that converts web content into well-formatted Markd
 - Comprehensive error handling and logging
 - Progress tracking for conversion stages
 
+## Example Output
+
+Check out [Markdown.md](output/Markdown.md) for an example of the converter's output when processing the Wikipedia article on Markdown. This example demonstrates the tool's ability to:
+
+- Preserve document structure and hierarchy
+- Handle complex formatting including tables and code blocks
+- Maintain proper link references
+- Clean up unnecessary content while keeping essential information
+- Format content according to markdown best practices
+
 ## Prerequisites
 
 - Python 3.11 or higher
