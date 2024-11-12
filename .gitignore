@@ -2,7 +2,6 @@
 venv/
 archive/
 docs/
-output/
 docker-compose.yml
 Dockerfile
 run.sh
