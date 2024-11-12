@@ -28,7 +28,7 @@ Check out [Markdown.md](output/Markdown.md) for an example of the converter's ou
 
 - Python 3.11 or higher
 - Chrome/Chromium browser (for Selenium)
-- Ell.so API access
+- OpenAI via Ell.so framework
 
 ## Installation
 
