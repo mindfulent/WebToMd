@@ -70,8 +70,6 @@ python -m src.convert
 
 ## Project Structure
 
-The project follows a modular architecture:
-
 ```text
 WebToMd/
 ├── output/  # Output markdown file
