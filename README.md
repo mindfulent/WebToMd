@@ -27,25 +27,28 @@ Check out [Markdown.md](output/Markdown.md) for an example of the converter's ou
 ## Prerequisites
 
 - Python 3.11 or higher
-- Docker and Docker Compose
 - Chrome/Chromium browser (for Selenium)
 - Ell.so API access
 
 ## Installation
 
 1. Clone the repository:
-bash
-git clone <repository-url>
-cd web-to-md
 
-2. Create and configure your environment file:
+```bash
+git clone https://github.com/mindfulent/WebToMd
+cd WebToMd
+```
+
+1. Create and configure your environment file:
+
 ```bash
 cp .env.example .env
 ```
 
 Edit `.env` with your API keys and configuration.
 
-3. Set up Python environment and install dependencies:
+1. Set up Python environment and install dependencies:
+
 ```bash
 # Create and activate virtual environment
 python -m venv venv
@@ -55,7 +58,8 @@ source venv/bin/activate  # On Windows use: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Run the converter:
+1. Run the converter:
+
 ```bash
 # Run with URL argument
 python -m src.convert --url https://example.com
