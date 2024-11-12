@@ -2,7 +2,7 @@
 
 ## Author: [Jon Pappas](https://github.com/matt-rickard)
 
-A powerful Python-based tool that converts web content into well-formatted Markdown by combining HTML parsing and visual analysis, powered by Ell.so for intelligent content processing.
+A powerful Python-based tool that converts web content into well-formatted Markdown by combining HTML parsing and visual analysis, powered by Ell.so and GPT-4o-minifor intelligent, multimodal content processing.
 
 ## Features
 
