@@ -4,6 +4,10 @@
 
 A Python-based tool that transforms web content into clean, well-formatted Markdown documents by leveraging advanced HTML parsing and GPT-4 Vision-powered analysis. Built with Ell.so for orchestration, it intelligently preserves document structure while eliminating unnecessary elements. 
 
+## Why?
+
+In an era of AI-powered development tools like Cursor.com, having web content in Markdown format enables seamless collaboration with AI by providing structured, easily referenceable documentation. Markdown's widespread adoption in developer workflows, native rendering in GitHub, and support across various documentation platforms makes it a good candidate for preserving and sharing web content in a developer-friendly and AI-context-friendly way.
+
 ## Features
 
 - Intelligent content extraction using visual analysis
