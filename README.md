@@ -2,7 +2,7 @@
 
 ## Author: [Jon Pappas](https://github.com/mindfulent)
 
-A Python-based tool that transforms web content into clean, well-formatted Markdown documents. It uses gpt-4o-mini with its vision capabilties to first determine what are the most important parts of the page to focus on (i.e. no navigation, no ads, etc). Then it parses the HTML comparing it to the screenshot to draft a proposal for a markdown representation. Finally, it reviews the content and references some guidelines to ensure the final output meets markdown standrads. This tool uses Ell.so to orchestrating the process and to permit inspection of the prompts, OpenAI for the LLM calls, Selenium for the screenshot capture and BeautifulSoup for the HTML parsing.
+A Python-based tool that transforms web content into clean, well-formatted Markdown documents. It uses gpt-4o-mini with its vision capabilties to first determine what are the most important parts of the page to focus on (i.e. no navigation, no ads, etc). Then it parses the HTML comparing it to the screenshot to draft a proposal for a markdown representation. Finally, it reviews the content and references some guidelines to ensure the final output meets markdown standards. This tool uses Ell.so to orchestrating the process and to permit inspection of the prompts, OpenAI for the LLM calls, Selenium for the screenshot capture and BeautifulSoup for the HTML parsing.
 
 ## Why?
 
