@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 # Configure Ell logging
 ell_logger = logging.getLogger('ell')
 ell_logger.setLevel(logging.WARNING)  # Only show warnings and errors from Ell
-ell.init(store='./logdir', autocommit=True)
+ell.init(verbose=True, store='./logdir', autocommit=True)
 
 # Add a custom handler for our application logs
 console_handler = logging.StreamHandler()
@@ -312,6 +312,16 @@ def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
            - Maintain header rows with at least three hyphens
            - Escape pipe characters in content with backslash
            - Keep consistent column spacing for readability
+        6. For links:
+           - Preserve all hyperlinks using [text](url) format
+           - Keep reference-style links at the bottom of sections
+           - Maintain link text formatting (bold, italic) inside brackets
+           - For external links, use absolute URLs
+           - For internal links, use relative paths
+        7. For references and citations:
+           - Preserve footnote links using [^n] format
+           - Keep citation links in reference-style format
+           - Maintain original link text and URLs
         """)
     ]
 
