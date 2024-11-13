@@ -2,11 +2,13 @@
 
 ## Author: [Jon Pappas](https://github.com/mindfulent)
 
-A Python-based tool that transforms web content into clean, well-formatted Markdown documents by leveraging advanced HTML parsing and GPT-4 Vision-powered analysis. Built with Ell.so for orchestration, it intelligently preserves document structure while eliminating unnecessary elements. 
+A Python-based tool that transforms web content into clean, well-formatted Markdown documents. It uses gpt-4o-mini with it's vision capabilties to first determine what is the most important parts of the page to focus on. Then it parses the HTML comparing it to the screenshot to draft a proposal for a markdown representation. Finally, it reviews the content and references some guidelines to ensure the final output meets markdown standrads. This tool uses Ell.so to orchestrating the process, OpenAI for the LLM calls, and Selenium for the screenshot capture and BeautifulSoup for the HTML parsing.
 
 ## Why?
 
 In an era of AI-powered development tools like Cursor.com, having web content in Markdown format enables seamless collaboration with AI by providing structured, easily referenceable documentation. Markdown's widespread adoption in developer workflows, native rendering in GitHub, and support across various documentation platforms makes it a good candidate for preserving and sharing web content in a developer-friendly and AI-context-friendly way.
+
+For intance, to build this tool I had to use Ell.so. But in order to understand Ell.so, which is very fresh and new, I had to create context files to feed to Claude within Cursor.com to know how to use Ell.so properly. This tool was used to create docs/notes_ell_combined.md which you can use in other Ell.so-powered projects. 
 
 ## Features
 
