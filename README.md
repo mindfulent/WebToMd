@@ -14,10 +14,9 @@ For intance, to build this tool I had to use Ell.so. But in order to understand 
 
 ## Features
 
-- Intelligent content extraction using visual analysis
+- Intelligent content extraction using visual analysis via gpt-4o-mini
 - HTML parsing with BeautifulSoup
 - Visual capture using Selenium
-- GPT-4 Vision powered content analysis
 - Clean Markdown formatting with customizable rules
 - Comprehensive error handling and logging
 - Progress tracking for conversion stages
