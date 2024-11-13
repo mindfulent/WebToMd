@@ -3,13 +3,7 @@ Web Scraper and Markdown Converter
 A comprehensive tool that converts web content to markdown using both HTML parsing 
 and visual analysis, powered by Ell.so for intelligent content processing.
 
-TIP: Start Ell Studio with:
-ell-studio --storage ./logdir
-
-Do this first then run this script with:
-python convert.py
-or from the root directory:
-python -m src.convert
+Read the README.md!
 """
 
 import os
@@ -632,6 +626,21 @@ def validate_chunk_boundaries(chunk: str) -> bool:
 def validate_chunk_context(chunk: str, surrounding_chunks: List[str]) -> bool:
     """Validate chunk context preservation."""
     pass
+
+def validate_document_title(content: str, visual_analysis: Dict) -> str:
+    """Ensure document has proper title formatting."""
+    # Check if content starts with a level 1 heading
+    if not content.startswith('# '):
+        # Get title from visual analysis
+        if 'title' in visual_analysis:
+            title = visual_analysis['title']
+            content = f'# {title}\n\n{content}'
+        else:
+            # Fallback to extracting title from first visible heading
+            first_heading = visual_analysis.get('hierarchy', [])[0]
+            if first_heading:
+                content = f'# {first_heading["text"]}\n\n{content}'
+    return content
 
 def main():
     """Main function to run the converter"""
