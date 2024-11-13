@@ -42,10 +42,10 @@ cd WebToMd
 2. Create and configure your environment file:
 
 ```bash
-cp .env.example .env
+# Copy the sample environment file
+# Update with your OpenAI API key
+cp .env.sample .env
 ```
-
-Edit `.env` with your API keys and configuration.
 
 3. Set up Python environment and install dependencies:
 
@@ -58,14 +58,25 @@ source venv/bin/activate  # On Windows use: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Run the converter:
+4. Start Ell Studio first so that you can inspect the output:
 
 ```bash
+ell-studio --storage ./logdir
+```
+
+5. Run the converter:
+```bash
+# Run interactively
+python -m src.convert
+
 # Run with URL argument
 python -m src.convert --url https://example.com
+```
 
-# Or run interactively
-python -m src.convert
+6. To deactivate the virtual environment when you're done:
+
+```bash
+deactivate
 ```
 
 ## Project Structure

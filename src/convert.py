@@ -2,6 +2,14 @@
 Web Scraper and Markdown Converter
 A comprehensive tool that converts web content to markdown using both HTML parsing 
 and visual analysis, powered by Ell.so for intelligent content processing.
+
+TIP: Start Ell Studio with:
+ell-studio --storage ./logdir
+
+Do this first then run this script with:
+python convert.py
+or from the root directory:
+python -m src.convert
 """
 
 import os
