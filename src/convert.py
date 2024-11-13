@@ -74,23 +74,31 @@ def process_url(self, url: str) -> str:
         # Split content into chunks and process each chunk
         html_content_chunks = chunk_content(html_content)
         markdown_parts = []
+        logger.info(f"Split content into {len(html_content_chunks)} chunks")
         
-        for chunk in html_content_chunks:
+        for i, chunk in enumerate(html_content_chunks, 1):
             try:
+                logger.info(f"Processing chunk {i}/{len(html_content_chunks)}")
                 markdown_part = generate_markdown_draft(chunk, visual_analysis)
-                markdown_parts.append(markdown_part)
+                if markdown_part:
+                    markdown_parts.append(markdown_part)
+                else:
+                    logger.warning(f"Empty result from chunk {i}")
             except openai.BadRequestError as e:
                 if "context_length_exceeded" in str(e):
-                    logger.warning(f"Chunk too large, splitting further...")
-                    # Recursively split into smaller chunks
+                    logger.warning(f"Chunk {i} too large, splitting further...")
                     smaller_chunks = chunk_content(chunk, max_chunk_size=50000)
-                    for smaller_chunk in smaller_chunks:
+                    for j, smaller_chunk in enumerate(smaller_chunks, 1):
+                        logger.info(f"Processing sub-chunk {j}/{len(smaller_chunks)} of chunk {i}")
                         markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
-                        markdown_parts.append(markdown_part)
+                        if markdown_part:
+                            markdown_parts.append(markdown_part)
                 else:
                     raise e
         
-        markdown_draft = '\n\n'.join(markdown_parts)
+        # Join chunks with double newlines to ensure proper separation
+        markdown_draft = '\n\n'.join(filter(None, markdown_parts))
+        logger.info(f"Combined {len(markdown_parts)} parts into final document")
         logger.info("Content generation complete")
         
         # Stage 3: Markdown Validation
@@ -110,8 +118,8 @@ def process_url(self, url: str) -> str:
 
 def chunk_content(content: str, max_chunk_size: int = 100000) -> List[str]:
     """Split content into smaller chunks to avoid token limits"""
-    # Split content into paragraphs or sections
-    sections = content.split('\n\n')
+    # Split content at major section boundaries
+    sections = re.split(r'\n(?=# |\## |\### )', content)
     chunks = []
     current_chunk = []
     current_size = 0
@@ -119,16 +127,20 @@ def chunk_content(content: str, max_chunk_size: int = 100000) -> List[str]:
     for section in sections:
         # Rough estimate of tokens (characters / 4)
         section_size = len(section) // 4
-        if current_size + section_size > max_chunk_size:
-            chunks.append('\n\n'.join(current_chunk))
-            current_chunk = [section]
-            current_size = section_size
-        else:
-            current_chunk.append(section)
-            current_size += section_size
+        
+        # If adding this section would exceed max size, start new chunk
+        if current_size + section_size > max_chunk_size and current_chunk:
+            chunks.append('\n'.join(current_chunk))
+            current_chunk = []
+            current_size = 0
+            
+        # Add section to current chunk
+        current_chunk.append(section)
+        current_size += section_size
     
+    # Don't forget the last chunk
     if current_chunk:
-        chunks.append('\n\n'.join(current_chunk))
+        chunks.append('\n'.join(current_chunk))
     
     return chunks
 
@@ -428,23 +440,31 @@ class MarkdownConverter:
             # Split content into chunks and process each chunk
             html_content_chunks = chunk_content(html_content)
             markdown_parts = []
+            logger.info(f"Split content into {len(html_content_chunks)} chunks")
             
-            for chunk in html_content_chunks:
+            for i, chunk in enumerate(html_content_chunks, 1):
                 try:
+                    logger.info(f"Processing chunk {i}/{len(html_content_chunks)}")
                     markdown_part = generate_markdown_draft(chunk, visual_analysis)
-                    markdown_parts.append(markdown_part)
+                    if markdown_part:
+                        markdown_parts.append(markdown_part)
+                    else:
+                        logger.warning(f"Empty result from chunk {i}")
                 except openai.BadRequestError as e:
                     if "context_length_exceeded" in str(e):
-                        logger.warning(f"Chunk too large, splitting further...")
-                        # Recursively split into smaller chunks
+                        logger.warning(f"Chunk {i} too large, splitting further...")
                         smaller_chunks = chunk_content(chunk, max_chunk_size=50000)
-                        for smaller_chunk in smaller_chunks:
+                        for j, smaller_chunk in enumerate(smaller_chunks, 1):
+                            logger.info(f"Processing sub-chunk {j}/{len(smaller_chunks)} of chunk {i}")
                             markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
-                            markdown_parts.append(markdown_part)
+                            if markdown_part:
+                                markdown_parts.append(markdown_part)
                     else:
                         raise e
             
-            markdown_draft = '\n\n'.join(markdown_parts)
+            # Join chunks with double newlines to ensure proper separation
+            markdown_draft = '\n\n'.join(filter(None, markdown_parts))
+            logger.info(f"Combined {len(markdown_parts)} parts into final document")
             logger.info("Content generation complete")
             
             # Stage 3: Markdown Validation
