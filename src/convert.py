@@ -334,6 +334,10 @@ def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
            - Preserve footnote links using [^n] format
            - Keep citation links in reference-style format
            - Maintain original link text and URLs
+        8. For images:
+           - Include important images identified in visual analysis
+           - Use standard markdown image syntax: ![alt text](image url)           
+           - Link to the images using their original URLs
         """)
     ]
 
