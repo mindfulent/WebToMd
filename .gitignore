@@ -2,7 +2,6 @@ __pycache__/
 .env
 venv/
 archive/
-docs/
 docker-compose.yml
 Dockerfile
 run.sh
