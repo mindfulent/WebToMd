@@ -83,11 +83,16 @@ deactivate
 
 ```text
 WebToMd/
-├── output/  # Output markdown file
+├── docs/
+│  ├── notes_ell_combined.md
+│  ├── notes-markdown.md
+│  └── project-webtomd.md
 ├── src/
 │ ├── convert.py
 │ └── combine.py
-└── README.md
+├── output/
+├── README.md
+└── requirements.txt
 ```
 
 ## Configuration
