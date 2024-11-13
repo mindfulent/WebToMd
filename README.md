@@ -34,8 +34,11 @@ Check out [Markdown.md](output/Markdown.md) for an example of the converter's ou
 
 Another example: 
 
- - output/Balloon_Fight.png
- - output/Balloon_Fight.md
+ - [output/Balloon_Fight.png][balloon-png]
+ - [output/Balloon_Fight.md][balloon-md]
+
+[balloon-png]: output/Balloon_Fight.png
+[balloon-md]: output/Balloon_Fight.md
 
 ## Prerequisites
 
