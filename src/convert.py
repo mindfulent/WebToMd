@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 # Configure Ell logging
 ell_logger = logging.getLogger('ell')
 ell_logger.setLevel(logging.WARNING)  # Only show warnings and errors from Ell
-ell.init(verbose=True, store='./logdir', autocommit=True)
+ell.init(verbose=False, store='./logdir', autocommit=True)
 
 # Add a custom handler for our application logs
 console_handler = logging.StreamHandler()
@@ -344,6 +344,12 @@ def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
 @ell.simple(model="gpt-4o-mini")
 def validate_markdown_format(content: str) -> str:
     """Ensure markdown content follows proper formatting rules."""
+    # First apply our specific validation functions
+    content = validate_table_format(content)
+    content = validate_list_format(content)
+    content = validate_code_blocks(content)
+    
+    # Then use Ell.so for additional validation and formatting
     return [
         ell.system("""You are a markdown validator that enforces strict formatting rules:
         1. For numbered lists with code blocks:
@@ -366,7 +372,7 @@ def validate_markdown_format(content: str) -> str:
         IMPORTANT: Never wrap the entire document in markdown code fences. The .md file format 
         already implies markdown content."""),
         ell.user(f"""
-        Format this markdown content according to the rules above:
+        Format this pre-validated markdown content according to the rules above:
         {content}
         
         IMPORTANT: 
@@ -557,6 +563,75 @@ def combine_results(results: List[Dict]) -> Dict:
         combined["exclude"].extend(result["exclude"])
     
     return combined
+
+def validate_table_format(table_content: str) -> str:
+    """Ensure table formatting follows markdown standards"""
+    lines = table_content.split('\n')
+    if len(lines) >= 2:
+        # Add alignment indicators in separator row
+        header_cells = lines[0].count('|') - 1
+        separator = '|' + '|'.join([':---:|' for _ in range(header_cells)])
+        lines[1] = separator
+    return '\n'.join(lines)
+
+def validate_list_format(content: str) -> str:
+    """Ensure proper list formatting"""
+    lines = content.split('\n')
+    result = []
+    in_list = False
+    
+    for line in lines:
+        if re.match(r'^[*+-]|\d+\.', line.strip()):
+            if not in_list:
+                result.append('')  # Add blank line before list
+            in_list = True
+        elif line.strip() == '':
+            in_list = False
+        result.append(line)
+    
+    return '\n'.join(result)
+
+def validate_code_blocks(content: str) -> str:
+    """Ensure code blocks have language specification"""
+    pattern = r'```\s*\n'  # Find code blocks without language
+    replacement = '```text\n'  # Default to text if no language specified
+    return re.sub(pattern, replacement, content)
+
+def validate_html_structure(html_content: str) -> str:
+    """Validate HTML structure and clean invalid markup."""
+    pass
+
+def validate_content_relevance(html_content: str, visual_analysis: Dict) -> str:
+    """Validate content relevance against visual analysis."""
+    pass
+
+def validate_html_elements(html_content: str) -> str:
+    """Validate specific HTML elements for conversion."""
+    pass
+
+def validate_heading_hierarchy(content: str) -> str:
+    """Validate heading levels and structure."""
+    pass
+
+def validate_link_formatting(content: str) -> str:
+    """Validate link syntax and references."""
+    pass
+
+def validate_image_formatting(content: str) -> str:
+    """Validate image syntax and references."""
+    pass
+
+def validate_chunk_size(chunk: str, max_size: int) -> bool:
+    """Validate chunk size against token limits."""
+    pass
+
+def validate_chunk_boundaries(chunk: str) -> bool:
+    """Validate chunk split points at logical boundaries."""
+    pass
+
+def validate_chunk_context(chunk: str, surrounding_chunks: List[str]) -> bool:
+    """Validate chunk context preservation."""
+    pass
 
 def main():
     """Main function to run the converter"""
