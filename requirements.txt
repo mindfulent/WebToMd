@@ -24,3 +24,5 @@ webdriver-manager==4.0.2
 # Development dependencies (optional but recommended)
 black==24.10.0  # For code formatting
 pytest==8.3.3   # For testing
+
+PyMuPDF>=1.22.3  # Add specific version as needed

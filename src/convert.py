@@ -47,6 +47,9 @@ console_handler.setFormatter(logging.Formatter(
 ))
 logger.handlers = [console_handler]
 
+# Configure OpenAI client
+openai_client = openai.Client(api_key=os.getenv("OPENAI_API_KEY"))
+
 # Add progress logging in key functions
 def process_url(self, url: str) -> str:
     """Process URL through three-stage conversion pipeline"""
@@ -249,7 +252,7 @@ def split_content(screenshot):
     # Basic implementation - can be enhanced based on needs
     return [screenshot]  # For now, return full screenshot as single section
 
-@ell.simple(model="gpt-4o")
+@ell.simple(model="gpt-4o-mini", client=openai_client)
 def analyze_page_content(screenshot: Image.Image) -> Dict:
     """Analyze webpage screenshot to identify main content and structure."""
     # Convert to RGB if image is in RGBA mode
@@ -293,7 +296,7 @@ def analyze_page_content(screenshot: Image.Image) -> Dict:
         ell.user(["Analyze this webpage screenshot and provide the structured analysis.", screenshot])
     ]
 
-@ell.simple(model="gpt-4o-mini")
+@ell.simple(model="gpt-4o-mini", client=openai_client)
 def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
     """Generate initial markdown content using HTML and visual analysis results."""
     return [
@@ -335,7 +338,7 @@ def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
         """)
     ]
 
-@ell.simple(model="gpt-4o-mini")
+@ell.simple(model="gpt-4o-mini", client=openai_client)
 def validate_markdown_format(content: str) -> str:
     """Ensure markdown content follows proper formatting rules."""
     # First apply our specific validation functions
@@ -523,7 +526,7 @@ class MarkdownConverter:
         
         return os.path.join(self.output_dir, f"{filename}.md")
 
-@ell.simple(model="gpt-4o")
+@ell.simple(model="gpt-4o-mini", client=openai_client)
 def analyze_section(section: Image.Image) -> Dict:
     """Analyze a single section of the webpage screenshot."""
     # Resize section if needed
