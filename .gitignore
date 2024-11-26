@@ -1,3 +1,5 @@
+archive/
+output/
 __pycache__/
 .env
 venv/
@@ -8,3 +10,7 @@ run.sh
 start.sh
 .DS_Store
 logdir/
+ai-context.txt
+ai-context.py
+ai-context.ignore
+src/pdftomd.py
