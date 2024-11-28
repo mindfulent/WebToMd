@@ -67,6 +67,7 @@ def process_url(self, url: str) -> str:
         # Stage 2: Content Generation
         logger.info("Stage 2/3: Generating content...")
         html_content = self.html_scraper.scrape(url)
+        page_title = self.html_scraper.get_page_title(html_content)
         
         # Split content into chunks and process each chunk
         html_content_chunks = chunk_content(html_content)
@@ -101,6 +102,7 @@ def process_url(self, url: str) -> str:
         # Stage 3: Markdown Validation
         logger.info("Stage 3/3: Validating markdown format...")
         final_markdown = validate_markdown_format(markdown_draft)
+        final_markdown = validate_document_title(final_markdown, visual_analysis, page_title)
         logger.info("Markdown validation complete")
         
         # Save the result
@@ -159,6 +161,14 @@ class HTMLScraper:
         except Exception as e:
             logger.error(f"HTML scraping failed: {e}")
             raise
+
+    def get_page_title(self, html_content: str) -> str:
+        """Extract page title from HTML content"""
+        soup = BeautifulSoup(html_content, 'html.parser')
+        title_tag = soup.find('title')
+        if title_tag:
+            return title_tag.string.strip()
+        return None
 
 class VisualScraper:
     """Handles visual content capture using Selenium"""
@@ -443,6 +453,7 @@ class MarkdownConverter:
             # Stage 2: Content Generation
             logger.info("Stage 2/3: Generating content...")
             html_content = self.html_scraper.scrape(url)
+            page_title = self.html_scraper.get_page_title(html_content)
             
             # Split content into chunks and process each chunk
             html_content_chunks = chunk_content(html_content)
@@ -477,6 +488,7 @@ class MarkdownConverter:
             # Stage 3: Markdown Validation
             logger.info("Stage 3/3: Validating markdown format...")
             final_markdown = validate_markdown_format(markdown_draft)
+            final_markdown = validate_document_title(final_markdown, visual_analysis, page_title)
             logger.info("Markdown validation complete")
             
             # Save the result
@@ -630,12 +642,13 @@ def validate_chunk_context(chunk: str, surrounding_chunks: List[str]) -> bool:
     """Validate chunk context preservation."""
     pass
 
-def validate_document_title(content: str, visual_analysis: Dict) -> str:
+def validate_document_title(content: str, visual_analysis: Dict, page_title: Optional[str] = None) -> str:
     """Ensure document has proper title formatting."""
     # Check if content starts with a level 1 heading
     if not content.startswith('# '):
-        # Get title from visual analysis
-        if 'title' in visual_analysis:
+        if page_title:
+            content = f'# {page_title}\n\n{content}'
+        elif 'title' in visual_analysis:
             title = visual_analysis['title']
             content = f'# {title}\n\n{content}'
         else:
