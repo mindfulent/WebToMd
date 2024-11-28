@@ -1,9 +1,8 @@
-archive/
+archive/zips/
 output/
 __pycache__/
 .env
 venv/
-archive/
 docker-compose.yml
 Dockerfile
 run.sh
@@ -14,4 +13,3 @@ ai-context.txt
 ai-context.py
 ai-context.ignore
 src/pdftomd.py
-zips/
