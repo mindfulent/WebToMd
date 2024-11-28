@@ -9,7 +9,7 @@ Dockerfile
 run.sh
 start.sh
 .DS_Store
-logdir/
+logs/
 ai-context.txt
 ai-context.py
 ai-context.ignore

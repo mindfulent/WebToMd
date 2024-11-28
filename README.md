@@ -20,6 +20,8 @@ For intance, to build this tool I had to use Ell.so. But in order to understand 
 - Clean Markdown formatting with customizable rules
 - Comprehensive error handling and logging
 - Progress tracking for conversion stages
+- Batch processing via YAML configuration
+- Custom prefix support for organized output files
 
 ## Example Output
 
@@ -86,6 +88,12 @@ python -m src.convert
 
 # Run with URL argument
 python -m src.convert --url https://example.com
+
+# Run with custom prefix
+python -m src.convert --url https://example.com --prefix custom
+
+# Run batch processing from config file with a custom prefix
+python -m src.convert --config src/config.yml --prefix custom
 ```
 
 6. To deactivate the virtual environment when you're done:
@@ -99,12 +107,13 @@ deactivate
 ```text
 WebToMd/
 ├── docs/
-│  ├── notes_ell_combined.md
+│  ├── ell-context.md
 │  ├── notes-markdown.md
 │  └── project-webtomd.md
 ├── src/
 │ ├── convert.py
-│ └── combine.py
+│ ├── combine.py
+│ └── config.yml
 ├── output/
 ├── README.md
 └── requirements.txt
@@ -133,3 +142,21 @@ The application can be configured through environment variables:
    - Structured conversion
    - Format preservation
    - Quality validation
+
+## Config File Format
+
+The application supports batch processing using a YAML configuration file. Create a `config.yml` file with the following structure:
+
+```yaml
+urls:
+  - https://example.com/page1
+  - https://example.com/page2
+  - https://example.com/page3
+```
+
+When using batch processing with a prefix, output files will be generated with sequential numbering:
+- prefix-01-page1.md
+- prefix-02-page2.md
+- prefix-03-page3.md
+
+This makes it easy to maintain order and organization when processing multiple related pages.

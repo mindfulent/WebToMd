@@ -23,6 +23,9 @@ from PIL import Image
 import io
 import openai
 import base64
+import yaml
+from urllib.parse import urlparse
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -36,8 +39,8 @@ logger = logging.getLogger(__name__)
 
 # Configure Ell logging
 ell_logger = logging.getLogger('ell')
-ell_logger.setLevel(logging.WARNING)  # Only show warnings and errors from Ell
-ell.init(verbose=False, store='./logdir', autocommit=True)
+ell_logger.setLevel(logging.WARNING)  
+ell.init(verbose=True, store='./logs', autocommit=True)
 
 # Add a custom handler for our application logs
 console_handler = logging.StreamHandler()
@@ -173,81 +176,83 @@ class HTMLScraper:
 class VisualScraper:
     """Handles visual content capture using Selenium"""
     
-    def __init__(self, output_dir: str = "output"):
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--start-maximized")  # Start with max width
-        chrome_options.binary_location = os.getenv("CHROME_BINARY_PATH", "/usr/bin/chromium")
-        self.driver = webdriver.Chrome(options=chrome_options)
+    def __init__(self, max_retries=3, output_dir="output"):
+        self.driver = None
+        self.max_retries = max_retries
         self.output_dir = output_dir
-
-    def save_screenshot(self, screenshot: bytes, url: str) -> str:
-        """Save screenshot to output directory"""
-        from urllib.parse import urlparse
-        parsed = urlparse(url)
-        path = parsed.path.strip('/')
-        
-        # Get the last component of the path
-        path_parts = path.split('/')
-        if path_parts:
-            # Take the last part and replace dots with underscores
-            filename = path_parts[-1].replace('.', '_')
-        else:
-            # Fallback to domain if no path
-            filename = parsed.netloc.split('.')[0]
-            
-        # Clean up filename
-        filename = re.sub(r'[^\w\s-]', '', filename)
-        filename = re.sub(r'[-\s]+', '-', filename)
-        
-        # Ensure filename isn't too long
-        if len(filename) > 50:
-            filename = filename[:50]
-            
-        filepath = os.path.join(self.output_dir, f"{filename}.png")
-        
-        with open(filepath, 'wb') as f:
-            f.write(screenshot)
-        
-        return filepath
-
-    def capture(self, url: str) -> bytes:
-        """Capture full page screenshot of the webpage"""
+    
+    def _ensure_driver(self):
+        """Ensure we have a working WebDriver instance"""
         try:
-            self.driver.get(url)
+            if self.driver:
+                try:
+                    # Test if driver is responsive
+                    self.driver.current_url
+                    return
+                except:
+                    logger.warning("Existing WebDriver unresponsive, recreating...")
+                    self._quit_driver()
             
-            # Get page dimensions
-            total_height = self.driver.execute_script("""
-                return Math.max(
-                    document.body.scrollHeight, 
-                    document.documentElement.scrollHeight,
-                    document.body.offsetHeight, 
-                    document.documentElement.offsetHeight,
-                    document.body.clientHeight, 
-                    document.documentElement.clientHeight
-                );
-            """)
+            options = webdriver.ChromeOptions()
+            options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
             
-            # Get viewport width
-            viewport_width = self.driver.execute_script(
-                "return document.documentElement.clientWidth;"
-            )
-            
-            # Set window size to capture everything
-            self.driver.set_window_size(viewport_width, total_height)
-            
-            # Wait for any dynamic content to load
-            self.driver.implicitly_wait(2)
-            
-            # Take full page screenshot
-            return self.driver.get_screenshot_as_png()
+            self.driver = webdriver.Chrome(options=options)
+            logger.info("New WebDriver instance created")
             
         except Exception as e:
-            logger.error(f"Visual capture failed: {e}")
+            logger.error(f"Failed to create WebDriver: {e}")
             raise
-        finally:
-            self.driver.quit()
+    
+    def _quit_driver(self):
+        """Safely quit the WebDriver"""
+        if self.driver:
+            try:
+                self.driver.quit()
+            except:
+                pass
+            self.driver = None
+    
+    def capture(self, url):
+        """Capture screenshot with retries"""
+        for attempt in range(self.max_retries):
+            try:
+                self._ensure_driver()
+                self.driver.get(url)
+                time.sleep(2)  # Wait for page load
+                return self.driver.get_screenshot_as_png()
+                
+            except Exception as e:
+                logger.warning(f"Screenshot attempt {attempt + 1} failed: {e}")
+                self._quit_driver()
+                if attempt == self.max_retries - 1:
+                    raise
+                time.sleep(1)  # Wait before retry
+    
+    def __del__(self):
+        self._quit_driver()
+    
+    def save_screenshot(self, screenshot_data: bytes, url: str) -> str:
+        """Save screenshot to file and return the path"""
+        # Create screenshots directory if it doesn't exist
+        screenshots_dir = os.path.join(self.output_dir, 'screenshots')
+        os.makedirs(screenshots_dir, exist_ok=True)
+        
+        # Generate filename from URL
+        filename = re.sub(r'[^\w\s-]', '', urlparse(url).path.strip('/').replace('/', '-'))
+        if not filename:
+            filename = 'homepage'
+        
+        # Add timestamp to ensure uniqueness
+        timestamp = time.strftime('%Y%m%d-%H%M%S')
+        filepath = os.path.join(screenshots_dir, f'{filename}-{timestamp}.png')
+        
+        # Save the screenshot
+        with open(filepath, 'wb') as f:
+            f.write(screenshot_data)
+        
+        return filepath
 
 def split_content(screenshot):
     """
@@ -538,6 +543,70 @@ class MarkdownConverter:
         
         return os.path.join(self.output_dir, f"{filename}.md")
 
+    def _generate_sequence_filename(self, url: str, prefix: str, sequence: int) -> str:
+        """Generate a filename with sequence number and prefix"""
+        # Extract the last part of the path
+        path = urlparse(url).path.strip('/')
+        last_segment = path.split('/')[-1] if path else ''
+        
+        # Clean up the segment
+        clean_segment = re.sub(r'[^\w\s-]', '', last_segment.lower())
+        clean_segment = re.sub(r'[-\s]+', '-', clean_segment)
+        
+        # Format with two-digit sequence number
+        filename = f"{prefix}-{sequence:02d}-{clean_segment}"
+        
+        # Truncate if too long (leaving room for extension)
+        if len(filename) > 46:  # 50 - 4 (.md)
+            filename = filename[:46]
+        
+        return os.path.join(self.output_dir, f"{filename}.md")
+
+    def process_urls_from_config(self, config_file: str, prefix: str = "doc") -> List[str]:
+        """Process multiple URLs from a config file with retry logic"""
+        logger.info(f"Reading URLs from config file: {config_file}")
+        
+        try:
+            with open(config_file, 'r') as f:
+                config = yaml.safe_load(f)
+            
+            if not config or 'urls' not in config:
+                raise ValueError("Config file must contain a 'urls' list")
+            
+            output_files = []
+            failed_urls = []
+            
+            for i, url in enumerate(config['urls'], 1):
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        logger.info(f"Processing URL {i}/{len(config['urls'])}: {url} (attempt {attempt + 1}/{max_retries})")
+                        markdown_content = self.process_url(url)
+                        
+                        output_file = self._generate_sequence_filename(url, prefix, i)
+                        with open(output_file, 'w', encoding='utf-8') as f:
+                            f.write(markdown_content)
+                        
+                        output_files.append(output_file)
+                        logger.info(f"Saved to: {output_file}")
+                        break
+                        
+                    except Exception as e:
+                        logger.error(f"Attempt {attempt + 1} failed for URL {url}: {e}")
+                        if attempt == max_retries - 1:
+                            failed_urls.append(url)
+                        time.sleep(2)  # Wait before retry
+            
+            if failed_urls:
+                logger.error(f"Failed to process {len(failed_urls)} URLs: {failed_urls}")
+            
+            logger.info(f"Batch processing completed. Generated {len(output_files)} files")
+            return output_files
+            
+        except Exception as e:
+            logger.error(f"Error reading config file: {e}")
+            raise
+
 @ell.simple(model="gpt-4o-mini", client=openai_client)
 def analyze_section(section: Image.Image) -> Dict:
     """Analyze a single section of the webpage screenshot."""
@@ -662,20 +731,28 @@ def main():
     """Main function to run the converter"""
     parser = argparse.ArgumentParser(description='Convert web content to markdown')
     parser.add_argument('--url', help='Target URL to convert')
+    parser.add_argument('--config', help='YAML config file containing URLs to process')
+    parser.add_argument('--prefix', default='doc', help='Prefix for output filenames (default: doc)')
     args = parser.parse_args()
     
-    url = args.url
-    if not url:
-        url = input("Please enter the URL to convert to markdown: ").strip()
-    
-    if not url:
-        logger.error("No URL provided")
-        return
-    
     converter = MarkdownConverter()
+    
     try:
-        markdown_content = converter.process_url(url)
-        logger.info("Conversion completed successfully")
+        if args.config:
+            # Batch processing mode
+            output_files = converter.process_urls_from_config(args.config, args.prefix)
+            logger.info(f"Batch processing completed. Generated {len(output_files)} files")
+            
+        else:
+            # Single URL mode
+            url = args.url or input("Please enter the URL to convert to markdown: ").strip()
+            if not url:
+                logger.error("No URL provided")
+                return
+                
+            markdown_content = converter.process_url(url)
+            logger.info("Conversion completed successfully")
+    
     except Exception as e:
         logger.error(f"Conversion failed: {e}")
         raise
