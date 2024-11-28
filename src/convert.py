@@ -8,7 +8,7 @@ Read the README.md!
 
 import os
 import logging
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -73,7 +73,7 @@ def process_url(self, url: str) -> str:
         page_title = self.html_scraper.get_page_title(html_content)
         
         # Split content into chunks and process each chunk
-        html_content_chunks = chunk_content(html_content)
+        html_content_chunks = filter_and_chunk_content(html_content)
         markdown_parts = []
         logger.info(f"Split content into {len(html_content_chunks)} chunks")
         
@@ -88,7 +88,7 @@ def process_url(self, url: str) -> str:
             except openai.BadRequestError as e:
                 if "context_length_exceeded" in str(e):
                     logger.warning(f"Chunk {i} too large, splitting further...")
-                    smaller_chunks = chunk_content(chunk, max_chunk_size=50000)
+                    smaller_chunks = filter_and_chunk_content(chunk, max_chunk_size=50000)
                     for j, smaller_chunk in enumerate(smaller_chunks, 1):
                         logger.info(f"Processing sub-chunk {j}/{len(smaller_chunks)} of chunk {i}")
                         markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
@@ -118,29 +118,29 @@ def process_url(self, url: str) -> str:
         logger.error(f"Conversion failed: {e}")
         raise
 
-def chunk_content(content: str, max_chunk_size: int = 100000) -> List[str]:
-    """Split content into smaller chunks to avoid token limits"""
-    # Split content at major section boundaries
-    sections = re.split(r'\n(?=# |\## |\### )', content)
+def filter_and_chunk_content(content: str, max_chunk_size: int = 100000) -> List[str]:
+    """Filter JSX/React components and split content into chunks"""
+    # First filter out unnecessary content
+    filtered_content = re.sub(r'<script\b[^>]*>[\s\S]*?</script>', '', content)
+    filtered_content = re.sub(r'_jsx\([^)]+\)|_jsxs\([^)]+\)', '', filtered_content)
+    filtered_content = re.sub(r'className="[^"]*"', '', filtered_content)
+    filtered_content = re.sub(r'children=\{[^}]*\}', '', filtered_content)
+    
+    # Then split into chunks using existing logic
+    sections = re.split(r'\n(?=# |\## |\### )', filtered_content)
     chunks = []
     current_chunk = []
     current_size = 0
     
     for section in sections:
-        # Rough estimate of tokens (characters / 4)
         section_size = len(section) // 4
-        
-        # If adding this section would exceed max size, start new chunk
         if current_size + section_size > max_chunk_size and current_chunk:
             chunks.append('\n'.join(current_chunk))
             current_chunk = []
             current_size = 0
-            
-        # Add section to current chunk
         current_chunk.append(section)
         current_size += section_size
     
-    # Don't forget the last chunk
     if current_chunk:
         chunks.append('\n'.join(current_chunk))
     
@@ -461,7 +461,7 @@ class MarkdownConverter:
             page_title = self.html_scraper.get_page_title(html_content)
             
             # Split content into chunks and process each chunk
-            html_content_chunks = chunk_content(html_content)
+            html_content_chunks = filter_and_chunk_content(html_content)
             markdown_parts = []
             logger.info(f"Split content into {len(html_content_chunks)} chunks")
             
@@ -476,7 +476,7 @@ class MarkdownConverter:
                 except openai.BadRequestError as e:
                     if "context_length_exceeded" in str(e):
                         logger.warning(f"Chunk {i} too large, splitting further...")
-                        smaller_chunks = chunk_content(chunk, max_chunk_size=50000)
+                        smaller_chunks = filter_and_chunk_content(chunk, max_chunk_size=50000)
                         for j, smaller_chunk in enumerate(smaller_chunks, 1):
                             logger.info(f"Processing sub-chunk {j}/{len(smaller_chunks)} of chunk {i}")
                             markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
@@ -567,23 +567,24 @@ class MarkdownConverter:
         logger.info(f"Reading URLs from config file: {config_file}")
         
         try:
-            with open(config_file, 'r') as f:
-                config = yaml.safe_load(f)
+            # Use the new parser
+            url_entries = parse_config_file(config_file)
             
-            if not config or 'urls' not in config:
-                raise ValueError("Config file must contain a 'urls' list")
+            if not url_entries:
+                raise ValueError("No valid URLs found in config file")
             
             output_files = []
             failed_urls = []
             
-            for i, url in enumerate(config['urls'], 1):
+            for number, url in url_entries:
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
-                        logger.info(f"Processing URL {i}/{len(config['urls'])}: {url} (attempt {attempt + 1}/{max_retries})")
+                        logger.info(f"Processing URL {number}/{len(url_entries)}: {url} (attempt {attempt + 1}/{max_retries})")
                         markdown_content = self.process_url(url)
                         
-                        output_file = self._generate_sequence_filename(url, prefix, i)
+                        # Use the number from the config file instead of the loop index
+                        output_file = self._generate_sequence_filename(url, prefix, number)
                         with open(output_file, 'w', encoding='utf-8') as f:
                             f.write(markdown_content)
                         
@@ -592,9 +593,9 @@ class MarkdownConverter:
                         break
                         
                     except Exception as e:
-                        logger.error(f"Attempt {attempt + 1} failed for URL {url}: {e}")
+                        logger.error(f"Attempt {attempt + 1} failed for URL {number}, {url}: {e}")
                         if attempt == max_retries - 1:
-                            failed_urls.append(url)
+                            failed_urls.append((number, url))
                         time.sleep(2)  # Wait before retry
             
             if failed_urls:
@@ -726,6 +727,58 @@ def validate_document_title(content: str, visual_analysis: Dict, page_title: Opt
             if first_heading:
                 content = f'# {first_heading["text"]}\n\n{content}'
     return content
+
+def filter_jsx_content(html_content: str) -> str:
+    """
+    Filter out unnecessary JSX/React components from HTML content
+    """
+    import re
+    
+    # Remove script tags and their contents
+    html_content = re.sub(r'<script\b[^>]*>[\s\S]*?</script>', '', html_content)
+    
+    # Remove JSX component syntax
+    html_content = re.sub(r'_jsx\([^)]+\)', '', html_content)
+    html_content = re.sub(r'_jsxs\([^)]+\)', '', html_content)
+    
+    # Remove React-specific attributes
+    html_content = re.sub(r'className="[^"]*"', '', html_content)
+    html_content = re.sub(r'children=\{[^}]*\}', '', html_content)
+    
+    # Remove component definitions
+    html_content = re.sub(r'function \w+\([^)]*\)\s*\{[\s\S]*?\}', '', html_content)
+    
+    # Remove object assignments
+    html_content = re.sub(r'const \{[^}]*\} = [^;]*;', '', html_content)
+    
+    # Clean up multiple newlines and spaces
+    html_content = re.sub(r'\n\s*\n', '\n\n', html_content)
+    html_content = re.sub(r' +', ' ', html_content)
+    
+    return html_content.strip()
+
+def parse_config_file(config_path: str) -> List[Tuple[int, str]]:
+    """
+    Parse the config file containing numbered URLs
+    Returns a list of tuples containing (number, url)
+    """
+    urls = []
+    with open(config_path, 'r') as f:
+        yaml_content = yaml.safe_load(f)
+        
+        if 'urls' in yaml_content:
+            for url_entry in yaml_content['urls']:
+                # Split on comma and strip whitespace
+                parts = url_entry.split(',', 1)
+                if len(parts) == 2:
+                    # Extract number and URL
+                    number = int(parts[0].strip())
+                    url = parts[1].strip()
+                    urls.append((number, url))
+    
+    # Sort by number to maintain order
+    urls.sort(key=lambda x: x[0])
+    return urls
 
 def main():
     """Main function to run the converter"""
