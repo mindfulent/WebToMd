@@ -27,7 +27,7 @@ For intance, to build this tool I had to use Ell.so. But in order to understand 
 
 ## Example Output
 
-Check out [Markdown.md](output/Markdown.md) for an example of the converter's output when processing the Wikipedia article on Markdown (<https://en.wikipedia.org/wiki/Markdown>). This example demonstrates the tool's ability to:
+Check out [Markdown.md](archive/demo/Markdown.md) for an example of the converter's output when processing the Wikipedia article on Markdown (<https://en.wikipedia.org/wiki/Markdown>). This example demonstrates the tool's ability to:
 
 - Preserve document structure and hierarchy
 - Handle complex formatting including tables and code blocks
@@ -37,11 +37,11 @@ Check out [Markdown.md](output/Markdown.md) for an example of the converter's ou
 
 Another example: 
 
- - [output/Balloon_Fight.png][balloon-png]
- - [output/Balloon_Fight.md][balloon-md]
+ - [archive/demo/Balloon_Fight.png][balloon-png]
+ - [archive/demo/Balloon_Fight.md][balloon-md]
 
-[balloon-png]: output/Balloon_Fight.png
-[balloon-md]: output/Balloon_Fight.md
+[balloon-png]: archive/demo/Balloon_Fight.png
+[balloon-md]: archive/demo/Balloon_Fight.md
 
 ## Prerequisites
 
