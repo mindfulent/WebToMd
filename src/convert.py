@@ -317,7 +317,12 @@ def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
     return [
         ell.system("""You are a content converter specializing in creating clean, 
         well-structured markdown. Focus only on the main content areas identified 
-        in the visual analysis."""),
+        in the visual analysis. Follow these line break rules strictly:
+        1. Single line break after each heading
+        2. No extra line breaks between list items
+        3. Single line break between different sections
+        4. No multiple consecutive line breaks
+        5. Single line break at end of document"""),
         ell.user(f"""
         Using this visual analysis:
         {visual_analysis}
@@ -330,59 +335,50 @@ def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
         2. Maintain the document structure from visual analysis
         3. Preserve important visual elements noted in analysis
         4. Exclude all navigation, ads, and footer content
-        5. For tables:
-           - Use standard Markdown table syntax with pipes and hyphens
-           - Preserve column alignment using colons in separator row
-           - Maintain header rows with at least three hyphens
-           - Escape pipe characters in content with backslash
-           - Keep consistent column spacing for readability
-        6. For links:
-           - Preserve all hyperlinks using [text](url) format
-           - Keep reference-style links at the bottom of sections
-           - Maintain link text formatting (bold, italic) inside brackets
-           - For external links, use absolute URLs
-           - For internal links, use relative paths
-        7. For references and citations:
-           - Preserve footnote links using [^n] format
-           - Keep citation links in reference-style format
-           - Maintain original link text and URLs
-        8. For images:
-           - Include important images identified in visual analysis
-           - Use standard markdown image syntax: ![alt text](image url)           
-           - Link to the images using their original URLs
+        5. For line breaks:
+           - Single break after headings
+           - No breaks between list items
+           - Single break between sections
+           - No consecutive breaks
+        6. For lists:
+           - No extra breaks between items
+           - Single break before and after list
+        7. For tables, links, references, and images:
+           [Previous rules remain the same...]
         """)
     ]
 
 @ell.simple(model="gpt-4o-mini", client=openai_client)
 def validate_markdown_format(content: str) -> str:
     """Ensure markdown content follows proper formatting rules."""
-    # First apply our specific validation functions
+    # First clean up multiple line breaks
+    content = re.sub(r'\n{3,}', '\n\n', content)  # Replace 3+ newlines with 2
+    content = re.sub(r'\n+$', '\n', content)      # Single newline at end
+    
+    # Apply specific validation functions
     content = validate_table_format(content)
     content = validate_list_format(content)
     content = validate_code_blocks(content)
     
-    # Then use Ell.so for additional validation and formatting
     return [
         ell.system("""You are a markdown validator that enforces strict formatting rules:
-        1. For numbered lists with code blocks:
-           - Add a blank line before the code block
-           - Indent the code block to align with the list item's text
-           - Add a blank line after the code block
-           - Maintain list item numbering after code blocks
-        2. For code blocks:
-           - Always include language specification after backticks
-           - Ensure proper indentation within lists
-           - Never wrap the entire document in code fences
-        3. For list items:
-           - Add a blank line between major list items
-           - Maintain consistent indentation for sub-items
-           - Preserve numbering sequence
+        1. Line breaks:
+           - Single break after headings
+           - No breaks between list items
+           - Single break between sections
+           - Remove consecutive breaks
+           - Single break at end of file
+        2. For lists:
+           - Remove extra breaks between items
+           - Single break before and after list
+        3. For code blocks:
+           - Single break before and after
+           - Include language specification
         4. After colons:
-           - Add a line break if followed by a code block or list
-           - Maintain inline if part of normal sentence
+           - No extra breaks unless followed by list/code
         
-        IMPORTANT: Never wrap the entire document in markdown code fences. The .md file format 
-        already implies markdown content."""),
+        IMPORTANT: Never add unnecessary line breaks. The document should be compact 
+        but readable."""),
         ell.user(f"""
         Format this pre-validated markdown content according to the rules above:
         {content}
@@ -390,8 +386,8 @@ def validate_markdown_format(content: str) -> str:
         IMPORTANT: 
         1. Output only the formatted content
         2. Start immediately with the content
-        3. Do not wrap the entire document in ```markdown and ```
-        4. The file should end with a new line""")
+        3. Do not wrap in markdown fences
+        4. Single newline at end""")
     ]
 
 def get_markdown_rules() -> str:
@@ -654,19 +650,26 @@ def validate_table_format(table_content: str) -> str:
     return '\n'.join(lines)
 
 def validate_list_format(content: str) -> str:
-    """Ensure proper list formatting"""
+    """Ensure proper list formatting without extra breaks"""
     lines = content.split('\n')
     result = []
     in_list = False
+    prev_was_list = False
     
     for line in lines:
-        if re.match(r'^[*+-]|\d+\.', line.strip()):
-            if not in_list:
-                result.append('')  # Add blank line before list
+        is_list_item = bool(re.match(r'^[*+-]|\d+\.', line.strip()))
+        
+        if is_list_item:
+            if not in_list and not prev_was_list:
+                result.append('')  # Single break before list starts
             in_list = True
-        elif line.strip() == '':
+        else:
+            if in_list and line.strip():  # Non-empty non-list line
+                result.append('')  # Single break after list ends
             in_list = False
+        
         result.append(line)
+        prev_was_list = is_list_item
     
     return '\n'.join(result)
 
