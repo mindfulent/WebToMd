@@ -8,9 +8,7 @@ A Python-based tool that transforms web content into clean, well-formatted Markd
 
 ## Demo
 
-[![Web to Markdown Converter Demo](https://img.youtube.com/vi/l5HwWBVMTvw/maxresdefault.jpg)](https://www.youtube.com/watch?v=l5HwWBVMTvw "Watch the Web to Markdown Converter Demo")
-
-[🎥 Watch the full demo video](https://www.youtube.com/watch?v=l5HwWBVMTvw)
+[🎥 WebToMd v1.2 doing its thing](https://www.youtube.com/watch?v=l5HwWBVMTvw)
 
 ## Why?
 
