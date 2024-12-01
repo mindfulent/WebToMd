@@ -117,10 +117,7 @@ def process_url(self, url: str) -> str:
         final_markdown = validate_markdown_format(markdown_draft)
         final_markdown = validate_document_title(final_markdown, visual_analysis, page_title)
         
-        # Save the result
-        output_path = self._save_markdown(final_markdown, url)
-        logger.info(f"Conversion successful! Output saved to: {output_path}")
-        
+        # Remove the save operation from here since it's handled in process_urls_from_config
         return final_markdown
         
     except Exception as e:
@@ -530,10 +527,7 @@ class ContentProcessor:
             final_markdown = validate_markdown_format(markdown_draft)
             final_markdown = validate_document_title(final_markdown, visual_analysis, page_title)
             
-            # Save the result
-            output_path = self._save_markdown(final_markdown, url)
-            logger.info(f"Conversion successful! Output saved to: {output_path}")
-            
+            # Remove the save operation from here since it's handled in process_urls_from_config
             return final_markdown
             
         except Exception as e:
