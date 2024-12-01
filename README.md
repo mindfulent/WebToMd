@@ -14,10 +14,6 @@ A Python-based tool that transforms web content into clean, well-formatted Markd
 
 In an era of AI-powered development tools like [Cursor.com](https://cursor.sh), having web content in Markdown format enables collaboration with AI by providing structured, easily referenceable documentation. Markdown's widespread adoption in developer workflows, native rendering in GitHub, and support across various documentation platforms makes it a good candidate for preserving and sharing web content in both a human-friendly and AI-context-friendly way.
 
-For intance, to build this tool I had to use Ell.so. But in order to understand Ell.so, which is very fresh and new, I had to create context files to feed to Claude within Cursor.com to know how to use it properly. This tool was used to create [docs/notes_ell_combined.md][ell-notes] which you can use in other Ell.so-powered projects.
-
-[ell-notes]: https://github.com/mindfulent/WebToMd/blob/master/docs/notes_ell_combined.md
-
 ## Features
 
 - (v1.0) Intelligent content analysis and strategy selection
