@@ -6,6 +6,10 @@
 
 A Python-based tool that transforms web content into clean, well-formatted Markdown documents. It uses gpt-4o-mini with its vision capabilities to first analyze the page structure and determine the optimal conversion strategy. For standard web pages, it parses the HTML while comparing it to the screenshot. For pages with complex layouts and low content-to-HTML ratio, it automatically switches to OCR-based extraction for cleaner results. Finally, it reviews the content and references guidelines to ensure the final output meets markdown standards. This tool uses [docs.ell.so](https://docs.ell.so) to orchestrate the process and to permit inspection of the prompts, OpenAI for the LLM calls, Selenium for the screenshot capture and BeautifulSoup for the HTML parsing. Cursor and Claude 3.5 Sonnet were used to build this project.
 
+## Demo
+
+[![Web to Markdown Converter Demo](https://img.youtube.com/vi/l5HwWBVMTvw/0.jpg)](https://www.youtube.com/watch?v=l5HwWBVMTvw)
+
 ## Why?
 
 In an era of AI-powered development tools like [Cursor.com](https://cursor.sh), having web content in Markdown format enables collaboration with AI by providing structured, easily referenceable documentation. Markdown's widespread adoption in developer workflows, native rendering in GitHub, and support across various documentation platforms makes it a good candidate for preserving and sharing web content in both a human-friendly and AI-context-friendly way.
