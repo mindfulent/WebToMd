@@ -2,9 +2,9 @@
 
 ## Author: [Jon Pappas](https://github.com/mindfulent)
 
-## Version: 1.1
+## Version: 1.2
 
-A Python-based tool that transforms web content into clean, well-formatted Markdown documents. It uses gpt-4o-mini with its vision capabilties to first determine what are the most important parts of the page to focus on (i.e. no navigation, no ads, etc). Then it parses the HTML comparing it to the screenshot to draft a proposal for a markdown representation. Finally, it reviews the content and references some guidelines to ensure the final output meets markdown standards. This tool uses [docs.ell.so](https://docs.ell.so) to orchestrate the process and to permit inspection of the prompts, OpenAI for the LLM calls, Selenium for the screenshot capture and BeautifulSoup for the HTML parsing. Cursor and Claude 3.5 Sonnet were used to build this project.
+A Python-based tool that transforms web content into clean, well-formatted Markdown documents. It uses gpt-4o-mini with its vision capabilities to first analyze the page structure and determine the optimal conversion strategy. For standard web pages, it parses the HTML while comparing it to the screenshot. For pages with complex layouts and low content-to-HTML ratio, it automatically switches to OCR-based extraction for cleaner results. Finally, it reviews the content and references guidelines to ensure the final output meets markdown standards. This tool uses [docs.ell.so](https://docs.ell.so) to orchestrate the process and to permit inspection of the prompts, OpenAI for the LLM calls, Selenium for the screenshot capture and BeautifulSoup for the HTML parsing. Cursor and Claude 3.5 Sonnet were used to build this project.
 
 ## Why?
 
@@ -16,14 +16,17 @@ For intance, to build this tool I had to use Ell.so. But in order to understand 
 
 ## Features
 
-- Intelligent content extraction using visual analysis via gpt-4o-mini
-- HTML parsing with BeautifulSoup
-- Visual capture using Selenium
-- Clean Markdown formatting with customizable rules
-- Comprehensive error handling and logging
-- Progress tracking for conversion stages
-- (New in 1.1) Batch processing via YAML configuration
-- (New in 1.1) Custom prefix support for organized output files
+- (v1.0) Intelligent content analysis and strategy selection
+- (v1.0) Visual analysis using gpt-4o-mini
+- (v1.0) HTML parsing with BeautifulSoup
+- (v1.0) Visual capture using Selenium
+- (v1.0) Clean Markdown formatting with customizable rules
+- (v1.0) Comprehensive error handling and logging
+- (v1.0) Progress tracking for conversion stages
+- (v1.1) Batch processing via YAML configuration
+- (v1.1) Custom prefix support for organized output files
+- (v1.2) Analyzer.py for additional content analysis and strategy selection
+- (v1.2) Automatic OCR fallback for complex layouts (low content-to-HTML ratio)
 
 ## Example Output
 
@@ -77,13 +80,7 @@ source venv/bin/activate  # On Windows use: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Start Ell Studio first so that you can inspect the output:
-
-```bash
-ell-studio --storage ./logdir
-```
-
-5. Run the converter:
+4. Run the converter:
 ```bash
 # Run interactively
 python -m src.convert
@@ -93,13 +90,10 @@ python -m src.convert --url https://docs.fireworks.ai/getting-started/introducti
 
 # Run batch processing from config file with a custom prefix (using ALL of Fireworks.ai documentation as an example, 97 pages)
 cp archive/configs/fireworks.config.yml src/config.yml
-python -m src.convert --config src/config.yml --prefix fireworks
-```
+python -m src.convert --config src/config.yml --prefix fennel
 
-6. To deactivate the virtual environment when you're done:
-
-```bash
-deactivate
+# Run analyzer.py to analyze the content of a single URL (using Fennel.ai API as an example 7.34% text-to-HTML ratio)
+python -m src.analyzer --url https://fennel.ai/docs/api-reference
 ```
 
 ## Project Structure
@@ -118,6 +112,7 @@ WebToMd/
 │  ├── ell-context.md            # Context file for Ell.so
 │  └── markdown-context.md       # Context file for Markdown standards
 ├── src/
+│ ├── analyzer.py                # Additional content analysis and strategy selection
 │ ├── convert.py                 # Main conversion logic
 │ ├── combine.py                 # Combine context files
 │ └── config.yml                 # Batch processing config file example
@@ -136,13 +131,18 @@ The application can be configured through environment variables:
 
 ## Processing Pipeline
 
-1. **Visual Analysis Phase**
+1. **Visual Analysis and Strategic Planning Phase**
    - Screenshot capture
    - Visual importance analysis
    - Content area identification
+   - Content structure analysis
+   - Text-to-HTML ratio assessment
+   - Processing strategy determination
+   - Recommendations generation   
+   - OCR extraction (when recommended)
 
 2. **Content Extraction Phase**
-   - Targeted HTML extraction
+   - Strategy-based extraction (HTML or OCR)
    - Content cleaning
    - Element correlation
 

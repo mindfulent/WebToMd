@@ -26,6 +26,9 @@ import base64
 import yaml
 from urllib.parse import urlparse
 import time
+import pytesseract
+from .analyzer import HTMLAnalyzer
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -45,7 +48,7 @@ ell.init(verbose=True, store='./logs', autocommit=True)
 # Add a custom handler for our application logs
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(logging.Formatter(
-    '%(asctime)s - %(message)s',
+    '%(asctime)s - %(levelname)s - %(message)s',
     datefmt='%H:%M:%S'
 ))
 logger.handlers = [console_handler]
@@ -55,58 +58,64 @@ openai_client = openai.Client(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Add progress logging in key functions
 def process_url(self, url: str) -> str:
-    """Process URL through three-stage conversion pipeline"""
+    """Process URL through conversion pipeline with OCR fallback"""
     try:
         logger.info(f"Starting conversion for URL: {url}")
         
-        # Stage 1: Visual Analysis
-        logger.info("Stage 1/3: Performing visual analysis...")
+        # Stage 1: Analysis & Strategy
+        logger.info("Stage 1/3: Analyzing content...")
+        analysis = self.analyzer.analyze_url(url)
+        logger.info(f"Analysis complete: {analysis['recommendations']}")
+        
+        # Stage 2: Visual Analysis & Content Capture
+        logger.info("Stage 2/3: Performing visual analysis...")
         screenshot = self.visual_scraper.capture(url)
         screenshot_path = self.visual_scraper.save_screenshot(screenshot, url)
         logger.info(f"Screenshot saved to: {screenshot_path}")
-        visual_analysis = analyze_page_content(Image.open(io.BytesIO(screenshot)))
-        logger.info("Visual analysis complete")
         
-        # Stage 2: Content Generation
-        logger.info("Stage 2/3: Generating content...")
-        html_content = self.html_scraper.scrape(url)
-        page_title = self.html_scraper.get_page_title(html_content)
-        
-        # Split content into chunks and process each chunk
-        html_content_chunks = filter_and_chunk_content(html_content)
-        markdown_parts = []
-        logger.info(f"Split content into {len(html_content_chunks)} chunks")
-        
-        for i, chunk in enumerate(html_content_chunks, 1):
-            try:
-                logger.info(f"Processing chunk {i}/{len(html_content_chunks)}")
-                markdown_part = generate_markdown_draft(chunk, visual_analysis)
-                if markdown_part:
-                    markdown_parts.append(markdown_part)
-                else:
-                    logger.warning(f"Empty result from chunk {i}")
-            except openai.BadRequestError as e:
-                if "context_length_exceeded" in str(e):
-                    logger.warning(f"Chunk {i} too large, splitting further...")
-                    smaller_chunks = filter_and_chunk_content(chunk, max_chunk_size=50000)
-                    for j, smaller_chunk in enumerate(smaller_chunks, 1):
-                        logger.info(f"Processing sub-chunk {j}/{len(smaller_chunks)} of chunk {i}")
-                        markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
-                        if markdown_part:
-                            markdown_parts.append(markdown_part)
-                else:
-                    raise e
-        
-        # Join chunks with double newlines to ensure proper separation
-        markdown_draft = '\n\n'.join(filter(None, markdown_parts))
-        logger.info(f"Combined {len(markdown_parts)} parts into final document")
-        logger.info("Content generation complete")
+        # Determine processing strategy
+        if analysis['processing_strategy']['use_ocr']:
+            logger.info("Using OCR-based extraction...")
+            image = Image.open(io.BytesIO(screenshot))
+            visual_analysis = analyze_page_content(image)
+            
+            # Extract text using OCR
+            ocr_text = pytesseract.image_to_string(image)
+            markdown_draft = generate_markdown_from_ocr(ocr_text, visual_analysis)
+            # Get page title from HTML for consistency
+            html_content = self.html_scraper.scrape(url)
+            page_title = self.html_scraper.get_page_title(html_content)
+        else:
+            logger.info("Using HTML-based extraction...")
+            visual_analysis = analyze_page_content(Image.open(io.BytesIO(screenshot)))
+            html_content = self.html_scraper.scrape(url)
+            page_title = self.html_scraper.get_page_title(html_content)
+            
+            # Process HTML content
+            html_content_chunks = filter_and_chunk_content(html_content)
+            markdown_parts = []
+            
+            for i, chunk in enumerate(html_content_chunks, 1):
+                try:
+                    markdown_part = generate_markdown_draft(chunk, visual_analysis)
+                    if markdown_part:
+                        markdown_parts.append(markdown_part)
+                except openai.BadRequestError as e:
+                    if "context_length_exceeded" in str(e):
+                        smaller_chunks = filter_and_chunk_content(chunk, max_chunk_size=50000)
+                        for smaller_chunk in smaller_chunks:
+                            markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
+                            if markdown_part:
+                                markdown_parts.append(markdown_part)
+                    else:
+                        raise e
+            
+            markdown_draft = '\n\n'.join(filter(None, markdown_parts))
         
         # Stage 3: Markdown Validation
         logger.info("Stage 3/3: Validating markdown format...")
         final_markdown = validate_markdown_format(markdown_draft)
         final_markdown = validate_document_title(final_markdown, visual_analysis, page_title)
-        logger.info("Markdown validation complete")
         
         # Save the result
         output_path = self._save_markdown(final_markdown, url)
@@ -312,6 +321,32 @@ def analyze_page_content(screenshot: Image.Image) -> Dict:
     ]
 
 @ell.simple(model="gpt-4o-mini", client=openai_client)
+def generate_markdown_from_ocr(ocr_text: str, visual_analysis: Dict) -> str:
+    """Convert OCR-extracted text to markdown using visual analysis for structure"""
+    return [
+        ell.system("""You are a documentation converter specializing in API documentation. 
+        Convert OCR-extracted text to clean, structured markdown while preserving:
+        1. Code blocks (maintain language-specific syntax)
+        2. Parameter descriptions and types
+        3. Visual hierarchy from the analysis
+        4. Tables and lists
+        """),
+        ell.user(f"""Using this visual structure analysis:
+        {json.dumps(visual_analysis, indent=2)}
+        
+        Convert this OCR-extracted text to markdown, ensuring proper formatting:
+        {ocr_text}
+        
+        Follow these guidelines:
+        1. Use proper markdown heading levels (# ## ###) based on visual_analysis hierarchy
+        2. Format code blocks with ```language_name
+        3. Preserve parameter types and descriptions in consistent format
+        4. Maintain proper spacing between sections
+        5. Clean up any OCR artifacts or misalignments
+        """)
+    ]
+
+@ell.simple(model="gpt-4o-mini", client=openai_client)
 def generate_markdown_draft(html_content: str, visual_analysis: Dict) -> str:
     """Generate initial markdown content using HTML and visual analysis results."""
     return [
@@ -425,72 +460,75 @@ def get_markdown_rules() -> str:
         Escape when needed
     """
 
-class MarkdownConverter:
-    """Converts web content to markdown using a three-stage process:
-    1. Visual Analysis
-    2. Content Generation
-    3. Markdown Validation
-    """
+class ContentProcessor:
+    """Handles content processing with OCR and visual analysis capabilities"""
     
     def __init__(self):
         self.html_scraper = HTMLScraper()
         self.visual_scraper = VisualScraper()
+        self.analyzer = HTMLAnalyzer()
         self.output_dir = "output"
         os.makedirs(self.output_dir, exist_ok=True)
 
     def process_url(self, url: str) -> str:
-        """Process URL through three-stage conversion pipeline"""
+        """Process URL through conversion pipeline with OCR fallback"""
         try:
             logger.info(f"Starting conversion for URL: {url}")
             
-            # Stage 1: Visual Analysis
-            logger.info("Stage 1/3: Performing visual analysis...")
+            # Stage 1: Analysis & Strategy
+            logger.info("Stage 1/3: Analyzing content...")
+            analysis = self.analyzer.analyze_url(url)
+            logger.info(f"Analysis complete: {analysis['recommendations']}")
+            
+            # Stage 2: Visual Analysis & Content Capture
+            logger.info("Stage 2/3: Performing visual analysis...")
             screenshot = self.visual_scraper.capture(url)
             screenshot_path = self.visual_scraper.save_screenshot(screenshot, url)
             logger.info(f"Screenshot saved to: {screenshot_path}")
-            visual_analysis = analyze_page_content(Image.open(io.BytesIO(screenshot)))
-            logger.info("Visual analysis complete")
             
-            # Stage 2: Content Generation
-            logger.info("Stage 2/3: Generating content...")
-            html_content = self.html_scraper.scrape(url)
-            page_title = self.html_scraper.get_page_title(html_content)
-            
-            # Split content into chunks and process each chunk
-            html_content_chunks = filter_and_chunk_content(html_content)
-            markdown_parts = []
-            logger.info(f"Split content into {len(html_content_chunks)} chunks")
-            
-            for i, chunk in enumerate(html_content_chunks, 1):
-                try:
-                    logger.info(f"Processing chunk {i}/{len(html_content_chunks)}")
-                    markdown_part = generate_markdown_draft(chunk, visual_analysis)
-                    if markdown_part:
-                        markdown_parts.append(markdown_part)
-                    else:
-                        logger.warning(f"Empty result from chunk {i}")
-                except openai.BadRequestError as e:
-                    if "context_length_exceeded" in str(e):
-                        logger.warning(f"Chunk {i} too large, splitting further...")
-                        smaller_chunks = filter_and_chunk_content(chunk, max_chunk_size=50000)
-                        for j, smaller_chunk in enumerate(smaller_chunks, 1):
-                            logger.info(f"Processing sub-chunk {j}/{len(smaller_chunks)} of chunk {i}")
-                            markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
-                            if markdown_part:
-                                markdown_parts.append(markdown_part)
-                    else:
-                        raise e
-            
-            # Join chunks with double newlines to ensure proper separation
-            markdown_draft = '\n\n'.join(filter(None, markdown_parts))
-            logger.info(f"Combined {len(markdown_parts)} parts into final document")
-            logger.info("Content generation complete")
+            # Determine processing strategy
+            if analysis['processing_strategy']['use_ocr']:
+                logger.info("Using OCR-based extraction...")
+                image = Image.open(io.BytesIO(screenshot))
+                visual_analysis = analyze_page_content(image)
+                
+                # Extract text using OCR
+                ocr_text = pytesseract.image_to_string(image)
+                markdown_draft = generate_markdown_from_ocr(ocr_text, visual_analysis)
+                # Get page title from HTML for consistency
+                html_content = self.html_scraper.scrape(url)
+                page_title = self.html_scraper.get_page_title(html_content)
+            else:
+                logger.info("Using HTML-based extraction...")
+                visual_analysis = analyze_page_content(Image.open(io.BytesIO(screenshot)))
+                html_content = self.html_scraper.scrape(url)
+                page_title = self.html_scraper.get_page_title(html_content)
+                
+                # Process HTML content
+                html_content_chunks = filter_and_chunk_content(html_content)
+                markdown_parts = []
+                
+                for i, chunk in enumerate(html_content_chunks, 1):
+                    try:
+                        markdown_part = generate_markdown_draft(chunk, visual_analysis)
+                        if markdown_part:
+                            markdown_parts.append(markdown_part)
+                    except openai.BadRequestError as e:
+                        if "context_length_exceeded" in str(e):
+                            smaller_chunks = filter_and_chunk_content(chunk, max_chunk_size=50000)
+                            for smaller_chunk in smaller_chunks:
+                                markdown_part = generate_markdown_draft(smaller_chunk, visual_analysis)
+                                if markdown_part:
+                                    markdown_parts.append(markdown_part)
+                        else:
+                            raise e
+                
+                markdown_draft = '\n\n'.join(filter(None, markdown_parts))
             
             # Stage 3: Markdown Validation
             logger.info("Stage 3/3: Validating markdown format...")
             final_markdown = validate_markdown_format(markdown_draft)
             final_markdown = validate_document_title(final_markdown, visual_analysis, page_title)
-            logger.info("Markdown validation complete")
             
             # Save the result
             output_path = self._save_markdown(final_markdown, url)
@@ -791,7 +829,7 @@ def main():
     parser.add_argument('--prefix', default='doc', help='Prefix for output filenames (default: doc)')
     args = parser.parse_args()
     
-    converter = MarkdownConverter()
+    converter = ContentProcessor()
     
     try:
         if args.config:
