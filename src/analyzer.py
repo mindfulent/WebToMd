@@ -155,9 +155,15 @@ class HTMLAnalyzer:
         tokens = analysis['token_estimate']
         
         if stats['text_ratio'] < 0.1:
-            analysis['recommendations'].append(
-                "Low text-to-HTML ratio (high noise). Consider aggressive pre-filtering."
-            )
+            if quality['is_api_doc'] and quality['has_main_content']:
+                analysis['recommendations'].append(
+                    "Very low text-to-HTML ratio detected in API documentation. "
+                    "Recommend using OCR-based extraction from screenshot for cleaner results."
+                )
+            else:
+                analysis['recommendations'].append(
+                    "Low text-to-HTML ratio (high noise). Consider aggressive pre-filtering."
+                )
         
         if stats['script_count'] > 10:
             analysis['recommendations'].append(
@@ -180,12 +186,17 @@ class HTMLAnalyzer:
             'preprocessing_steps': [],
             'chunking_method': 'visual_guided',
             'chunk_size': 25000,
-            'requires_visual_analysis': True,  # Always use visual analysis first
-            'priority_elements': []
+            'requires_visual_analysis': True,
+            'priority_elements': [],
+            'use_ocr': False
         }
         
         # Determine content extraction approach
-        if analysis['stats']['text_ratio'] < 0.3:
+        if analysis['stats']['text_ratio'] < 0.1 and analysis['content_quality']['is_api_doc']:
+            strategy['preprocessing_steps'].append('ocr_extraction')
+            strategy['use_ocr'] = True
+            strategy['chunking_method'] = 'visual_sections'
+        elif analysis['stats']['text_ratio'] < 0.3:
             strategy['preprocessing_steps'].append('visual_guided_extraction')
             strategy['chunking_method'] = 'visual_sections'
         
