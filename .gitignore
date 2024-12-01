@@ -15,3 +15,4 @@ ai-context.ignore
 src/pdftomd.py
 src/config.yml
 archive/configs/fennel.config.yml
+fix-numbering.sh

@@ -588,7 +588,7 @@ class ContentProcessor:
         clean_segment = re.sub(r'[-\s]+', '-', clean_segment)
         
         # Format with two-digit sequence number
-        filename = f"{prefix}-{sequence:02d}-{clean_segment}"
+        filename = f"{prefix}-{sequence:03d}-{clean_segment}"
         
         # Truncate if too long (leaving room for extension)
         if len(filename) > 46:  # 50 - 4 (.md)
